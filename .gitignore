@@ -1,0 +1,9 @@
+autism/
+Lib/
+venv/
+bin/
+include/
+scripts/
+__pycache__/
+*.pyc
+uploads/
