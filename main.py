@@ -48,76 +48,50 @@ MODEL_THRESHOLD = 0.5  # Classification threshold
 
 def load_model():
     global model
-    print("Looking for model files...")
-    
-    # ... (Keep your existing path search logic to define model_path) ...
-    model_path = "autism_detection_model.h5" # Fallback if search logic is skipped
+    model_path = "autism_detection_model.h5"
+    print(f"Loading model from {model_path}...")
 
     try:
-        # 1. Try the most robust modern loader first
-        print("Attempting surgical load...")
+        # Most reliable way for .h5 files
         model = tf.keras.models.load_model(model_path, compile=False)
-    except Exception:
-        print("Standard load failed. Rebuilding architecture from weights...")
-        try:
-            # 2. Build a skeleton model matching your input (224, 224, 3)
-            # This bypasses the 'InputLayer' error because WE define the input layer here
-            base_model = tf.keras.applications.MobileNetV2(
-                input_shape=(224, 224, 3), 
-                include_top=True, 
-                weights=None  # We don't want imagenet weights
-            )
-            # If your model has a custom top, you might need to adjust this part.
-            # But usually, load_weights is very forgiving if the shapes match.
-            base_model.load_weights(model_path, by_name=True, skip_mismatch=True)
-            model = base_model
-            print("Weights loaded successfully into skeleton model.")
-        except Exception as e:
-            # 3. The "Nuclear" Option: Use the 'h5py' library directly
-            print(f"Skeleton load failed. Trying direct H5 reading...")
-            import h5py
-            model = tf.keras.models.load_model(h5py.File(model_path, 'r'), compile=False)
-
-    model.compile(optimizer='adam', loss='binary_crossentropy')
-    print("Model ready!")
+        print("Model loaded successfully!")
+    except Exception as e:
+        print(f"Error: Could not load model. {e}")
+        print("TIP: Ensure your environment has the same Keras/TensorFlow version used during training.")
 
     
+from keras.applications.mobilenet_v2 import preprocess_input
+
 def preprocess_image(image_bytes: bytes) -> np.ndarray:
-    """
-    Preprocess image for model input
-    
-    Args:
-        image_bytes: Raw image bytes
-        
-    Returns:
-        Preprocessed image array
-    """
     try:
         # Convert bytes to numpy array
         nparr = np.frombuffer(image_bytes, np.uint8)
-        
+
         # Decode image
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        
+
         if img is None:
             raise ValueError("Could not decode image")
-        
+
         # Convert BGR to RGB
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        
-        # Resize to model input size
+
+        # Resize image
         img = cv2.resize(img, MODEL_INPUT_SIZE)
-        
-        # Normalize to [0, 1] range
-        img = img / 255.0
-        
+
+        # Convert to float32
+        img = img.astype(np.float32)
+
+        # MobileNetV2 preprocessing
+        img = preprocess_input(img)
+
         # Add batch dimension
         img = np.expand_dims(img, axis=0)
-        
-        return img.astype(np.float32)
-        
+
+        return img
+
     except Exception as e:
-        print(f" Error preprocessing image: {e}")
+        print(f"Error preprocessing image: {e}")
         raise
 
 def save_uploaded_file(file_data: bytes, filename: str) -> str:
@@ -168,12 +142,6 @@ async def lifespan(app: FastAPI):
     yield
     # Clean up (if needed) on shutdown
     print("Shutting down...")
-
-app = FastAPI(
-    title="Autism Detection API",
-    lifespan=lifespan, # Add this line
-    # ... other settings
-)
 
 # Remove the old @app.on_event("startup") block entirely
 
@@ -273,6 +241,8 @@ async def predict_image(
         # Make prediction
         start_time = datetime.now()
         prediction = model.predict(processed_image, verbose=0)
+        print("Raw prediction:", prediction)
+        print("Prediction shape:", prediction.shape)
         inference_time = (datetime.now() - start_time).total_seconds()
         
         # Get probability
