@@ -253,8 +253,8 @@ async def predict_image(
             label = "Non-autistic"
             confidence = probability
         else:
-           label = "Autistic"
-           confidence = 1 - probability
+            label = "Autistic"
+            confidence = 1 - probability
         
         # Format response
         response = {
