@@ -250,11 +250,11 @@ async def predict_image(
         
         # Interpret results
         if probability > MODEL_THRESHOLD:
-           label = "Non-autistic"
-           confidence = probability
+            label = "Non-autistic"
+            confidence = probability
         else:
-            label = "Autistic"
-            confidence = 1 - probability
+           label = "Autistic"
+           confidence = 1 - probability
         
         # Format response
         response = {
